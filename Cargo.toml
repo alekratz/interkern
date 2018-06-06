@@ -1,0 +1,11 @@
+[package]
+name = "interkern-rs"
+version = "0.1.0"
+authors = ["Alek Ratzloff <alekratz@gmail.com>"]
+
+[lib]
+crate-type = ["staticlib"]
+
+[dependencies]
+volatile = "*"
+spin = "*"
