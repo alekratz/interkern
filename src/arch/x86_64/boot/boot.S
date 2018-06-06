@@ -20,6 +20,8 @@ gdt64_pointer:
 _start:
     # If we don't have this nop, the CPU crashes...?
     leal stack_top, %esp
+    # Multiboot info pointer gets stored in %edi
+    movl %ebx, %edi
     # Startup CPU checks
     call _check_multiboot
     call _check_cpuid
@@ -146,5 +148,5 @@ p2_table: .fill 4096
 
 # Stack
 stack_bottom:
-.fill 64    # 64 bytes
+.fill 4096
 stack_top:
