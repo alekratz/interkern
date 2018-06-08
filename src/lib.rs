@@ -4,10 +4,18 @@
 extern crate volatile;
 extern crate spin;
 extern crate multiboot2;
+#[macro_use] extern crate bitflags;
+extern crate x86_64;
 
 #[macro_use] pub mod arch;
+pub mod memory;
 
 use core::panic::PanicInfo;
+use memory::FrameAllocator;
+
+extern {
+    static p4_table: usize;
+}
 
 /// The kernel entrypoint.
 ///
@@ -15,14 +23,11 @@ use core::panic::PanicInfo;
 /// `mb2_info_addr` - the address where multiboot2 system information resides.
 #[no_mangle]
 pub extern fn kmain(mb2_info_addr: usize) {
-    song();
+    welcome();
+
     vgaprintln!();
     vgaprintln!("{}", "================================================================================");
     vgaprintln!();
-    print_boot_info(mb2_info_addr);
-}
-
-fn print_boot_info(mb2_info_addr: usize) {
 
     let mb2_info = unsafe { multiboot2::load(mb2_info_addr) };
     let memory_map = mb2_info.memory_map_tag()
@@ -50,9 +55,19 @@ fn print_boot_info(mb2_info_addr: usize) {
     vgaprintln!("Kernel start address: 0x{:x}", kernel_start);
     vgaprintln!("Kernel end address: 0x{:x}", kernel_end);
     vgaprintln!("Kernel size in memory: 0x{:x} bytes", kernel_end - kernel_start);
+
+    let mut allocator = memory::AreaFrameAllocator::new(memory_map.memory_areas(),
+        kernel_start as usize, kernel_end as usize, mb2_info.start_address(), mb2_info.end_address());
+    /*
+    vgaprintln!("Allocating a new frame: {:?}", allocator.alloc());
+    let mut count = 0;
+    while let Some(frame) = allocator.alloc() { count += 1; }
+    vgaprintln!("Allocated an additional {} frames", count);
+    test_paging(&mut allocator);
+    */
 }
 
-fn song() {
+fn welcome() {
     vgaprintln!("Hello world");
     vgaprintln!("Programmed to work and not to feel");
     vgaprintln!("Not even sure that this is real");
@@ -84,3 +99,4 @@ pub extern fn panic(info: &PanicInfo) -> ! {
     vgaprintln!("Panic: {}", info);
     loop {}
 }
+

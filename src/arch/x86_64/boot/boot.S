@@ -86,6 +86,11 @@ _check_long_mode:
 
 # Initialize page tables
 _init_page_tables:
+    # Map the last entry of P4 to itself for recursive table mapping
+    leal p4_table, %eax
+    orl $0b011, %eax  # present, writable
+    movl $511, %esi
+    movl %eax, p4_table(,%esi,8)
     # Map first entry of P4 to the P3 table
     leal p3_table, %eax
     # Present, writeable
@@ -142,6 +147,7 @@ _error:
 .section .bss
 # Page table
 .align 4096
+.global p4_table
 p4_table: .fill 4096
 p3_table: .fill 4096
 p2_table: .fill 4096
