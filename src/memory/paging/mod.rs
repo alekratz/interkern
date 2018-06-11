@@ -1,8 +1,15 @@
+use multiboot2::BootInformation;
 use memory::{PAGE_SIZE, Frame, FrameAllocator};
 
+mod entry;
 mod table;
+mod temporary_page;
+mod mapper;
 
+pub use self::entry::*;
 pub use self::table::*;
+pub use self::temporary_page::*;
+pub use self::mapper::Mapper;
 
 pub type PhysicalAddress = usize;
 pub type VirtualAddress = usize;
@@ -41,85 +48,45 @@ impl Page {
     }
 }
 
-/// An entry in a page table.
-///
-/// Page table entries for x86_64 are 64 bits wide.
-///
-/// TODO(arch) this is x86_64 specific
-pub struct Entry(u64);
-
-impl Entry {
-    pub fn is_used(&self) -> bool {
-        self.0 != 0
-    }
-
-    pub fn set_unused(&mut self) {
-        self.0 = 0;
-    }
-
-    /// Gets the flags of this entry.
-    pub fn flags(&self) -> EntryFlags {
-        EntryFlags::from_bits_truncate(self.0)
-    }
-
-    /// Gets the physical frame that this virtual page entry is pointing at, if it is present.
-    pub fn to_frame(&self) -> Option<Frame> {
-        if self.flags().contains(EntryFlags::PRESENT) {
-            let addr = self.0 as usize & 0x000fffff_fffff000;
-            Some(Frame::containing_address(addr))
-        } else {
-            None
-        }
-    }
-
-    /// Sets the frame and flags for this entry.
-    pub fn set(&mut self, frame: Frame, flags: EntryFlags) {
-        assert!(frame.start_address() & !0x000fffff_fffff000 == 0, "Physical frame address is not page-aligned");
-        self.0 = (frame.start_address() as u64) | flags.bits();
-    }
-}
-
-/// Flags for page table entries.
-bitflags! {
-    pub struct EntryFlags: u64 {
-        const PRESENT       = 1 << 0;
-        const WRITABLE      = 1 << 1;
-        const USER          = 1 << 2;
-        const WRITETHROUGH  = 1 << 3;
-        const DISABLECACHE  = 1 << 4;
-        const ACCESSED      = 1 << 5;
-        const DIRTY         = 1 << 6;
-        const HUGE          = 1 << 7;
-        const GLOBAL        = 1 << 8;
-        // bits 9-11 and 52-62 are unused by the CPU
-        const NOEXEC        = 1 << 63;
-    }
-}
-
-/*
-pub fn test_paging<A>(allocator: &mut A)
+pub fn remap_kernel<A>(allocator: &mut A, boot_info: &BootInformation)
     where A: FrameAllocator
 {
-    let mut page_table = unsafe { ActivePageTable::new() };
+    let mut temporary_page = TemporaryPage::new(Page { number: 0xDECAFDAD }, allocator);
+    let mut active_table = unsafe { ActivePageTable::new() };
+    let mut new_table = {
+        let frame = allocator.alloc().expect("No frames available");
+        InactivePageTable::new(frame, &mut active_table, &mut temporary_page)
+    };
 
-    let addr = 42 * 512 * 512 * 4096; // 42nd P3 entry
-    let page = Page::containing_address(addr);
-    let frame = allocator.alloc().expect("No free frames");
-    vgaprintln!("None = {:?}, map to {:?}", page_table.translate(addr), frame);
-    page_table.map_to(page, frame, EntryFlags::empty(), allocator);
-    vgaprintln!("Some = {:?}", page_table.translate(addr));
-    vgaprintln!("Virtual address of frame: {:x}", addr);
-    vgaprintln!("Next free frame: {:?}", allocator.alloc());
-    vgaprintln!("Virtual address: {:#x}", addr);
-    vgaprintln!("{:#x}", unsafe {
-        *(Page::containing_address(addr).start_address() as *const u64)
+    active_table.with(&mut new_table, &mut temporary_page, |mapper| {
+        let elf_sections_tag = boot_info.elf_sections_tag()
+            .expect("ELF sections tag memory map not available");
+        for section in elf_sections_tag.sections() {
+            if !section.is_allocated() {
+                continue; // don't bother allocating unused sections
+            }
+            assert!(section.start_address() % PAGE_SIZE as u64 == 0, "ELF Sections must be page-aligned");
+            let flags = EntryFlags::from(section.flags().clone());
+            let start_frame = Frame::containing_address(section.start_address() as usize);
+            let end_frame = Frame::containing_address(section.end_address() as usize - 1);
+            for frame in Frame::range_inclusive(start_frame, end_frame) {
+                mapper.identity_map(frame, flags, allocator);
+            }
+        }
+        let mb_start = Frame::containing_address(boot_info.start_address() as usize);
+        let mb_end = Frame::containing_address(boot_info.end_address() as usize - 1);
+        for frame in Frame::range_inclusive(mb_start, mb_end) {
+            mapper.identity_map(frame, EntryFlags::PRESENT, allocator);
+        }
+        let vga_buffer_frame = Frame::containing_address(0xb8000);
+        mapper.identity_map(vga_buffer_frame, EntryFlags::WRITABLE, allocator);
+        
     });
-    vgaprintln!("Unmapping page");
-    page_table.unmap(Page::containing_address(addr), allocator);
+    let old_table = active_table.switch(new_table);
 
-    vgaprintln!("Invoking page fault");
-    vgaprintln!("{:#x}", unsafe {
-        *(Page::containing_address(addr).start_address() as *const u64)
-    });
+    // Reuse the old p2 and p3 tables for stack, with the old p4 table becoming a stack guard
+    // we can use the frame address because it's identity mapped
+    let old_p4_page = Page::containing_address(old_table.p4_frame.start_address());
+    active_table.unmap(old_p4_page, allocator);
+    vgaprintln!("Stack guard page at {:#x}", old_p4_page.start_address());
 }
-*/

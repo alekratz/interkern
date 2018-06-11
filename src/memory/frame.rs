@@ -20,6 +20,14 @@ impl Frame {
     pub fn start_address(&self) -> PhysicalAddress {
         self.number * PAGE_SIZE
     }
+
+    pub (in memory) fn clone(&self) -> Self {
+        Frame { number: self.number }
+    }
+
+    pub (in memory) fn range_inclusive(start: Frame, end: Frame) -> impl Iterator<Item=Frame> {
+        (start.number ..= end.number).map(|number| Frame { number })
+    }
 }
 
 pub trait FrameAllocator {

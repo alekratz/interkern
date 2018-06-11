@@ -5,6 +5,7 @@ extern crate volatile;
 extern crate spin;
 extern crate multiboot2;
 #[macro_use] extern crate bitflags;
+// TODO(arch) this should be conditional on the project configuration
 extern crate x86_64;
 
 #[macro_use] pub mod arch;
@@ -23,6 +24,10 @@ extern {
 /// `mb2_info_addr` - the address where multiboot2 system information resides.
 #[no_mangle]
 pub extern fn kmain(mb2_info_addr: usize) {
+    // TODO(arch) this is x86_64 specific
+    arch::x86_64::enable_nxe_bit();
+    arch::x86_64::enable_kernel_write_protect();
+
     welcome();
 
     vgaprintln!();
@@ -41,7 +46,7 @@ pub extern fn kmain(mb2_info_addr: usize) {
         .expect("Could not find ELF sections tag in multiboot2 data");
     vgaprintln!("ELF sections:");
     for section in elf_sections.sections() {
-        vgaprintln!("    addr: 0x{:x}, size: 0x{:x}, flags: 0x{:x}", section.start_address(), section.size(), section.flags());
+        vgaprintln!("    addr: {:#x}, size: {:#x}, flags: {:#b}", section.start_address(), section.size(), section.flags());
     }
 
     let kernel_start = elf_sections.sections()
@@ -52,19 +57,14 @@ pub extern fn kmain(mb2_info_addr: usize) {
         .map(|s| s.start_address() + s.size())
         .max()
         .unwrap();
-    vgaprintln!("Kernel start address: 0x{:x}", kernel_start);
-    vgaprintln!("Kernel end address: 0x{:x}", kernel_end);
+    //vgaprintln!("Kernel start address: 0x{:x}", kernel_start);
+    //vgaprintln!("Kernel end address: 0x{:x}", kernel_end);
     vgaprintln!("Kernel size in memory: 0x{:x} bytes", kernel_end - kernel_start);
 
     let mut allocator = memory::AreaFrameAllocator::new(memory_map.memory_areas(),
         kernel_start as usize, kernel_end as usize, mb2_info.start_address(), mb2_info.end_address());
-    /*
-    vgaprintln!("Allocating a new frame: {:?}", allocator.alloc());
-    let mut count = 0;
-    while let Some(frame) = allocator.alloc() { count += 1; }
-    vgaprintln!("Allocated an additional {} frames", count);
-    test_paging(&mut allocator);
-    */
+    memory::remap_kernel(&mut allocator, &mb2_info);
+    //let frame = allocator.alloc();
 }
 
 fn welcome() {
@@ -96,6 +96,7 @@ pub extern fn eh_personality() {}
 #[panic_implementation]
 #[no_mangle]
 pub extern fn panic(info: &PanicInfo) -> ! {
+    vgaprintln!("KERNEL RESIGNED");
     vgaprintln!("Panic: {}", info);
     loop {}
 }
