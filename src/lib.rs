@@ -1,6 +1,7 @@
 #![feature(lang_items, panic_implementation, ptr_internals)]
 #![feature(const_fn, const_let)]
 #![feature(alloc, allocator_api, global_allocator)]
+#![feature(nll)]
 #![no_std]
 
 extern crate rlibc;
