@@ -7,8 +7,10 @@ authors = ["Alek Ratzloff <alekratz@gmail.com>"]
 crate-type = ["staticlib"]
 
 [dependencies]
+rlibc = "1.0"
 volatile = "*"
 spin = "*"
 multiboot2 = "*"
 bitflags = "1"
 x86_64 = "0.1.2"
+static_assertions = "0.2.5"
