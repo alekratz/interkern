@@ -1,5 +1,5 @@
 use core::{
-    alloc::{Opaque, GlobalAlloc, Layout},
+    alloc::{GlobalAlloc, Layout},
     mem,
 };
 
@@ -224,7 +224,7 @@ impl BuddyAllocator {
 
 #[cfg(not(test))]
 unsafe impl GlobalAlloc for BuddyAllocator {
-    unsafe fn alloc(&self, layout: Layout) -> *mut Opaque {
+    unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
         assert!(self.ready, "Attempted to use heap before it is initialized");
         // request size needs to include the size of bookkeeping
         let request_size = layout.size() + mem::size_of::<BuddyBlock>();
@@ -243,13 +243,13 @@ unsafe impl GlobalAlloc for BuddyAllocator {
             let block_addr = block as *const _ as usize;
             assert!(block_addr < self.heap_end);
             // offset by the bookkeeping size
-            (block_addr + mem::size_of::<BuddyBlock>()) as *mut Opaque
+            (block_addr + mem::size_of::<BuddyBlock>()) as *mut u8 
         } else {
             kernel_oom(layout)
         }
     }
 
-    unsafe fn dealloc(&self, ptr: *mut Opaque, _layout: Layout) {
+    unsafe fn dealloc(&self, ptr: *mut u8, _layout: Layout) {
         let mut block = &mut *((ptr as usize - mem::size_of::<BuddyBlock>()) as *mut BuddyBlock);
         block.used = false;
         let mut buddy = block.buddy();
