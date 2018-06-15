@@ -1,6 +1,7 @@
 #![feature(lang_items, panic_implementation, ptr_internals)]
 #![feature(const_fn, const_let)]
 #![feature(alloc, allocator_api, global_allocator)]
+#![feature(abi_x86_interrupt)]
 #![feature(nll)]
 #![no_std]
 
@@ -10,9 +11,10 @@ extern crate volatile;
 extern crate spin;
 extern crate multiboot2;
 #[macro_use] extern crate bitflags;
-// TODO(arch) this should be conditional on the project configuration
 extern crate x86_64;
 #[macro_use] extern crate static_assertions;
+#[macro_use] extern crate lazy_static;
+extern crate bit_field;
 
 #[macro_use] pub mod arch;
 pub mod memory;
@@ -37,7 +39,9 @@ pub extern fn kmain(boot_info_addr: usize) {
     arch::x86_64::enable_nxe_bit();
     arch::x86_64::enable_kernel_write_protect();
 
-    memory::init(boot_info);
+    let mut memory_controller = memory::init(boot_info);
+    arch::x86_64::interrupt::init(&mut memory_controller);
+    //x86_64::instructions::interrupts::int3();
 
     vgaprintln!();
     vgaprintln!("================================================================================");

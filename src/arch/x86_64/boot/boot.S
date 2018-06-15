@@ -154,5 +154,5 @@ p2_table: .fill 4096
 
 # Stack
 stack_bottom:
-.fill 4096
+.fill 4096 * 4
 stack_top:

@@ -1,4 +1,6 @@
 #[macro_use] pub mod vga;
+pub mod interrupt;
+pub mod stack;
 
 /// Enables the NXE bit on the EFER register.
 ///

@@ -1,3 +1,4 @@
+use core::ops::Add;
 use multiboot2::BootInformation;
 use memory::{PAGE_SIZE, Frame, FrameAllocator};
 
@@ -21,8 +22,8 @@ pub struct Page {
 }
 
 impl Page {
-    pub fn range_inclusive(start: Page, end: Page) -> impl Iterator<Item=Page> {
-        (start.number ..= end.number).map(|number| Page { number })
+    pub fn range_inclusive(start: Page, end: Page) -> PageRangeIter {
+        PageRangeIter { start: start.number, end: end.number }
     }
 
     pub fn containing_address(address: VirtualAddress) -> Self {
@@ -49,6 +50,34 @@ impl Page {
 
     pub fn p1_index(&self) -> usize {
         self.number & 0o777
+    }
+}
+
+impl Add<usize> for Page {
+    type Output = Page;
+
+    fn add(self, rhs: usize) -> Page {
+        Page { number: self.number + rhs }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct PageRangeIter {
+    start: usize,
+    end: usize,
+}
+
+impl Iterator for PageRangeIter {
+    type Item = Page;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.start > self.end {
+            None
+        } else {
+            let page = Page { number: self.start };
+            self.start += 1;
+            Some(page)
+        }
     }
 }
 
