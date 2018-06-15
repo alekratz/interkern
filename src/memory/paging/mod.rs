@@ -21,6 +21,10 @@ pub struct Page {
 }
 
 impl Page {
+    pub fn range_inclusive(start: Page, end: Page) -> impl Iterator<Item=Page> {
+        (start.number ..= end.number).map(|number| Page { number })
+    }
+
     pub fn containing_address(address: VirtualAddress) -> Self {
         assert!(address < 0x0000_8000_0000_0000 || address >= 0xffff_8000_0000_0000,
                 "invalid address passed to Page::containing_address: 0x{:x}", address);
@@ -48,7 +52,7 @@ impl Page {
     }
 }
 
-pub fn remap_kernel<A>(allocator: &mut A, boot_info: &BootInformation)
+pub fn remap_kernel<A>(allocator: &mut A, boot_info: &BootInformation) -> ActivePageTable
     where A: FrameAllocator
 {
     let mut temporary_page = TemporaryPage::new(Page { number: 0xDECAFDAD }, allocator);
@@ -65,10 +69,12 @@ pub fn remap_kernel<A>(allocator: &mut A, boot_info: &BootInformation)
             if !section.is_allocated() {
                 continue; // don't bother allocating unused sections
             }
-            assert!(section.start_address() % PAGE_SIZE as u64 == 0, "ELF Sections must be page-aligned");
+            assert!(section.start_address() % PAGE_SIZE as u64 == 0,
+                    "ELF Sections must be page-aligned (got {:#x} instead)", section.start_address());
             let flags = EntryFlags::from(section.flags().clone());
             let start_frame = Frame::containing_address(section.start_address() as usize);
             let end_frame = Frame::containing_address(section.end_address() as usize - 1);
+            vgaprintln!("Identity mapping {:#x} - {:#x} flags {:#x}", start_frame.start_address(), end_frame.start_address() + 4095, flags);
             for frame in Frame::range_inclusive(start_frame, end_frame) {
                 mapper.identity_map(frame, flags, allocator);
             }
@@ -89,4 +95,6 @@ pub fn remap_kernel<A>(allocator: &mut A, boot_info: &BootInformation)
     let old_p4_page = Page::containing_address(old_table.p4_frame.start_address());
     active_table.unmap(old_p4_page, allocator);
     vgaprintln!("Stack guard page at {:#x}", old_p4_page.start_address());
+
+    active_table
 }

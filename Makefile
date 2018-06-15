@@ -28,6 +28,9 @@ iso: $(KERN_ISO)
 release:
 	make RELEASE=release
 
+test:
+	cargo test
+
 $(KERN_ISO): $(BOOT_BIN) $(GRUB_CFG)
 	grub-mkrescue -o $(KERN_ISO) iso
 

@@ -4,6 +4,7 @@ use memory::frame::{Frame, FrameAllocator};
 use memory::paging::{
     Entry, EntryFlags, Mapper,
     temporary_page::TemporaryPage,
+    VirtualAddress,
 };
 
 /// The number of page entries per page table.
@@ -183,6 +184,30 @@ impl ActivePageTable {
             control_regs::cr3_write(PhysicalAddress(new_table.p4_frame.start_address() as u64));
         }
         old_table
+    }
+
+    pub unsafe fn address_to_entry(&self, address: VirtualAddress) -> &Entry {
+        let p4_index = (address >> 39) & 0o777;
+        let p3_index = (address >> 30) & 0o777;
+        let p2_index = (address >> 21) & 0o777;
+        let p1_index = (address >> 12) & 0o777;
+        let p1 = self.p4()
+            .next_table(p4_index).unwrap()
+            .next_table(p3_index).unwrap()
+            .next_table(p2_index).unwrap();
+        &p1[p1_index]
+    }
+
+    pub unsafe fn address_to_entry_mut(&mut self, address: VirtualAddress) -> &mut Entry {
+        let p4_index = (address >> 39) & 0o777;
+        let p3_index = (address >> 30) & 0o777;
+        let p2_index = (address >> 21) & 0o777;
+        let p1_index = (address >> 12) & 0o777;
+        let p1 = self.p4_mut()
+            .next_table_mut(p4_index).unwrap()
+            .next_table_mut(p3_index).unwrap()
+            .next_table_mut(p2_index).unwrap();
+        &mut p1[p1_index]
     }
 }
 

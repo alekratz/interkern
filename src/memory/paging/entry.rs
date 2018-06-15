@@ -1,7 +1,4 @@
-use multiboot2::{
-    ElfSection,
-    ElfSectionFlags,
-};
+use multiboot2::ElfSectionFlags;
 use memory::Frame;
 
 /// An entry in a page table.
@@ -39,6 +36,16 @@ impl Entry {
     pub fn set(&mut self, frame: Frame, flags: EntryFlags) {
         assert!(frame.start_address() & !0x000fffff_fffff000 == 0, "Physical frame address is not page-aligned");
         self.0 = (frame.start_address() as u64) | flags.bits();
+    }
+
+    /// Sets the flags for this entry, overwriting any flags that were previously set.
+    ///
+    /// Note that this will overwrite the "PRESENT" flag if not accounted for.
+    pub fn set_flags(&mut self, flags: EntryFlags) {
+        let addr = (!self.flags().bits()) & self.0;
+        vgaprintln!("address {:#x} self.0 {:#x}", addr, self.0);
+        self.0 = flags.bits() | addr;
+        vgaprintln!("address {:#x} self.0 {:#x}", addr, self.0);
     }
 }
 

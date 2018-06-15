@@ -19,6 +19,11 @@ SECTIONS {
         *(.data.rel.ro.local*) *(.data.rel.ro .data.rel.ro.*)
     }
 
+    .data ALIGN(4K) :
+    {
+        *(.data .data.*)
+    }
+
     .bss ALIGN(4K) :
     {
         *(.bss .bss.*)
@@ -32,11 +37,6 @@ SECTIONS {
     .got.plt ALIGN(4K) :
     {
         *(.got)
-    }
-
-    .data.rel.ro ALIGN(4K) :
-    {
-        *(.data.rel.ro.local*) *(.data.rel.ro .data.rel.ro.*)
     }
 
     .gcc_except_table ALIGN(4K) :

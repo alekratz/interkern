@@ -22,7 +22,7 @@ impl Mapper {
         unsafe { self.p4.as_mut() }
     }
 
-    pub fn unmap<A>(&mut self, page: Page, allocator: &mut A)
+    pub fn unmap<A>(&mut self, page: Page, _allocator: &mut A)
         where A: FrameAllocator
     {
         // make sure that this page is actually mapped
@@ -33,7 +33,7 @@ impl Mapper {
             .and_then(|p3| p3.next_table_mut(page.p3_index()))
             .and_then(|p2| p2.next_table_mut(page.p2_index()))
             .expect("Hugepages are not supported yet");
-        let frame = p1[page.p1_index()].to_frame().unwrap();
+        let _frame = p1[page.p1_index()].to_frame().unwrap();
         p1[page.p1_index()].set_unused();
         // TODO : de-allocate above page frames if they're empty
         // TODO(arch) abstract away x86_64 calls
