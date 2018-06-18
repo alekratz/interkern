@@ -36,9 +36,9 @@ _start:
 # Multiboot check
 _check_multiboot:
     cmp $0x36d76289, %eax
-    jne .L0
+    jne 1f
     ret
-.L0:
+1:
     movb $'0, %al
     jmp _error
 
@@ -58,9 +58,9 @@ _check_cpuid:
     pushl %ecx
     popf
     cmp %eax,%ecx
-    je .L1
+    je 1f
     ret
-.L1:
+1:
     movb $'1, %al
     jmp _error
 
@@ -71,16 +71,16 @@ _check_long_mode:
     cpuid
     cmpl $0x80000001, %eax
     # If not, long mode is definitely not available
-    jb .L2
+    jb 1f
     # Check if long mode is available
     movl $0x80000001, %eax
     cpuid
     # Bit 29 is the "long mode" bit and gets put into EDX
     # If it isn't set, long mode is not supported
     test $1 << 29, %edx
-    jz .L2
+    jz 1f
     ret
-.L2:
+1:
     movb $'2, %al
     jmp _error
 
@@ -104,7 +104,7 @@ _init_page_tables:
 
     # Map all entries of P2 to be hugepages
     movl $0, %ecx
-.L3:
+1:
     movl $0x200000, %eax
     mull %ecx
     # hugepage + write + present
@@ -112,7 +112,7 @@ _init_page_tables:
     movl %eax, p2_table(, %ecx, 8)
     inc %ecx
     cmp $512, %ecx
-    jne .L3
+    jne 1b
     ret
 
 # Enable paging in the processor
