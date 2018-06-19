@@ -1,6 +1,7 @@
 mod frame;
 mod paging;
 mod heap;
+pub mod map;
 
 pub use self::frame::*;
 pub use self::paging::*;
@@ -20,15 +21,17 @@ pub fn init(boot_info: BootInformation) -> MemoryController<impl FrameAllocator>
         .expect("Could not find ELF sections tag in multiboot2 data");
 
     let kernel_start = elf_sections.sections()
-        .filter(ElfSection::is_allocated)
+        .filter(|s| s.is_allocated() && !s.name().ends_with(".early"))
         .map(|s| s.start_address())
         .min()
         .unwrap();
     let kernel_end = elf_sections.sections()
-        .filter(ElfSection::is_allocated)
+        .filter(|s| s.is_allocated() && !s.name().ends_with(".early"))
         .map(|s| s.start_address() + s.size())
         .max()
         .unwrap();
+    vgaprintln!("Kernel start: {:#x}", kernel_start);
+    vgaprintln!("Kernel end  : {:#x}", kernel_end);
 
     let mut frame_allocator = AreaFrameAllocator::new(memory_map.memory_areas(),
         kernel_start as usize, kernel_end as usize,

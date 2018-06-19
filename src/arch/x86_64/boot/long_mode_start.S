@@ -1,5 +1,5 @@
 .code64
-.section .text
+.section .text.early
 .global _long_mode_start
 
 .extern kmain
@@ -12,5 +12,7 @@ _long_mode_start:
     mov %ax, %es
     mov %ax, %fs
     mov %ax, %gs
-    call kmain
+    #call kmain
+    movabs $kmain, %rax
+    jmp *%rax
     hlt

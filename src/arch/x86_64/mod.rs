@@ -1,17 +1,23 @@
 #[macro_use] pub mod vga;
 pub mod interrupt;
 pub mod stack;
+pub mod cpu;
 
-/// Enables the NXE bit on the EFER register.
+/// Enables various features on the EFER register.
+///
+/// The features which are enabled are:
+/// * the NXE bit, which allows setting pages to be non-executable
+/// * the SYSCALL enable bit, which allows usage of the `syscall` instruction
 ///
 /// This allows us to set pages as NO_EXECUTE.
-pub fn enable_nxe_bit() {
+pub fn enable_efer_features() {
     use x86_64::registers::msr::{IA32_EFER, rdmsr, wrmsr};
 
-    let nxe_bit = 1 << 11;
+    let syscall_bit = 1 << 0;
+    let nxe_bit     = 1 << 11;
     unsafe {
         let efer = rdmsr(IA32_EFER);
-        wrmsr(IA32_EFER, efer | nxe_bit);
+        wrmsr(IA32_EFER, efer | nxe_bit | syscall_bit);
     }
 }
 

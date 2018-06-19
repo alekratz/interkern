@@ -2,6 +2,7 @@ use core::{
     alloc::{GlobalAlloc, Layout},
     mem,
 };
+use memory;
 
 /// Minimum block size for this allocator.
 const MIN_BLOCK_SIZE: usize = 64;
@@ -133,6 +134,7 @@ impl BuddyAllocator {
         if heap_size.is_power_of_two() {
             self.max_block_size = heap_size;
         } else {
+            panic!("Heap size must be a power of 2 for the time being");
             self.max_block_size = 1 << log2(heap_size);
         }
 
@@ -278,7 +280,7 @@ pub extern fn kernel_oom(_layout: Layout) -> ! {
 }
 
 /// The start of the kernel heap.
-pub const KERNEL_HEAP_START: usize = 0o000_001_000_000_0000;
+pub const KERNEL_HEAP_START: usize = memory::map::KERNEL_HEAP_START;
 
 /// The size of the kernel heap.
 pub const KERNEL_HEAP_SIZE: usize = 1024 * 64; // 64 kib

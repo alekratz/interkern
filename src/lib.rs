@@ -33,13 +33,15 @@ pub static GLOBAL_ALLOCATOR: BuddyAllocator = memory::KERNEL_HEAP_ALLOCATOR;
 /// `boot_info_addr` - the address where multiboot2 system information resides.
 #[cfg(not(test))]
 #[no_mangle]
-pub extern fn kmain(boot_info_addr: usize) {
+pub extern fn kmain(boot_info_addr: usize) -> ! {
     let boot_info = unsafe { multiboot2::load(boot_info_addr) };
     // TODO(arch) this is x86_64 specific
-    arch::x86_64::enable_nxe_bit();
+    arch::x86_64::enable_efer_features();
     arch::x86_64::enable_kernel_write_protect();
 
+    vgaprintln!("Initialize memory");
     let mut memory_controller = memory::init(boot_info);
+    vgaprintln!("Initialize interrupts");
     arch::x86_64::interrupt::init(&mut memory_controller);
     //x86_64::instructions::interrupts::int3();
 
@@ -57,6 +59,8 @@ pub extern fn kmain(boot_info_addr: usize) {
     */
     vgaprintln!("Testing vector heap");
     vgaprintln!("Done");
+
+    loop {}
 }
 
 fn welcome() {

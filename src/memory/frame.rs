@@ -61,6 +61,7 @@ impl AreaFrameAllocator {
         alloc.choose_next_area();
         alloc
     }
+
     fn choose_next_area(&mut self) {
         self.current_area = self.areas.clone()
             .filter(|area| Frame::containing_address(area.start_address() + area.size() - 1) >= self.next_frame)

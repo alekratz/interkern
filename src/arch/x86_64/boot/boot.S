@@ -1,7 +1,7 @@
 .code32
 
 # GDT for 64-bit transition
-.section .rodata
+.section .rodata.early
 gdt64:
     .quad 0
 .set GDT_CODESEG, . - gdt64
@@ -11,14 +11,13 @@ gdt64_pointer:
     .word . - gdt64 - 1
     .quad gdt64
 
-.section .text
+.section .text.early
 
 .extern _long_mode_start
 
 # Program entry point
 .global _start
 _start:
-    # If we don't have this nop, the CPU crashes...?
     leal stack_top, %esp
     # Multiboot info pointer gets stored in %edi
     movl %ebx, %edi
@@ -91,10 +90,13 @@ _init_page_tables:
     orl $0b011, %eax  # present, writable
     movl $511, %esi
     movl %eax, p4_table(,%esi,8)
-    # Map first entry of P4 to the P3 table
+    # Map entry 0x100 of P4 to the P3 table
     leal p3_table, %eax
     # Present, writeable
     orl $0b11,%eax
+    movl $0x100, %esi
+    movl %eax, p4_table(, %esi, 8)
+    # Also map entry 0
     movl %eax, p4_table
 
     # Map first entry of P3 to the P2 table
@@ -108,7 +110,7 @@ _init_page_tables:
     movl $0x200000, %eax
     mull %ecx
     # hugepage + write + present
-    orl $0b10000011, %eax
+    orl $0b000010000011, %eax
     movl %eax, p2_table(, %ecx, 8)
     inc %ecx
     cmp $512, %ecx
@@ -144,7 +146,7 @@ _error:
     movb %al, (0xb800a)
     hlt
 
-.section .bss
+.section .bss.early
 # Page table
 .align 4096
 .global p4_table
@@ -156,3 +158,4 @@ p2_table: .fill 4096
 stack_bottom:
 .fill 4096 * 4
 stack_top:
+

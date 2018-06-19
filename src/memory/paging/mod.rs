@@ -1,6 +1,6 @@
 use core::ops::Add;
 use multiboot2::BootInformation;
-use memory::{PAGE_SIZE, Frame, FrameAllocator};
+use memory::{PAGE_SIZE, Frame, FrameAllocator, map::KERNEL_BASE};
 
 mod entry;
 mod table;
@@ -101,13 +101,27 @@ pub fn remap_kernel<A>(allocator: &mut A, boot_info: &BootInformation) -> Active
             assert!(section.start_address() % PAGE_SIZE as u64 == 0,
                     "ELF Sections must be page-aligned (got {:#x} instead)", section.start_address());
             let flags = EntryFlags::from(section.flags().clone());
-            let start_frame = Frame::containing_address(section.start_address() as usize);
-            let end_frame = Frame::containing_address(section.end_address() as usize - 1);
-            vgaprintln!("Identity mapping {:#x} - {:#x} flags {:#x}", start_frame.start_address(), end_frame.start_address() + 4095, flags);
-            for frame in Frame::range_inclusive(start_frame, end_frame) {
-                mapper.identity_map(frame, flags, allocator);
+            if section.start_address() > KERNEL_BASE as u64 {
+                vgaprintln!("Mapping ELF section from {:#x} - {:#x}", section.start_address(), section.end_address());
+                let start_page = Page::containing_address(section.start_address() as usize);
+                let end_page = Page::containing_address(section.end_address() as usize - 1);
+                let start_frame = Frame::containing_address(section.start_address() as usize - KERNEL_BASE);
+                let end_frame = Frame::containing_address(section.end_address() as usize - KERNEL_BASE - 1);
+                for (page, frame) in Page::range_inclusive(start_page, end_page).zip(Frame::range_inclusive(start_frame, end_frame)) {
+                    mapper.map_to(page, frame, flags, allocator);
+                }
+            } else {
+                vgaprintln!("Identity mapping ELF section from {:#x} - {:#x}", section.start_address(), section.end_address());
+                let start_frame = Frame::containing_address(section.start_address() as usize);
+                let end_frame = Frame::containing_address(section.end_address() as usize - 1);
+                for frame in Frame::range_inclusive(start_frame, end_frame) {
+                    mapper.identity_map(frame, flags, allocator);
+                }
             }
         }
+        // TODO : reset stack pointer, identity map p4 table(?)
+        //mapper.identity_map(Frame::containing_address(mapper.p4() as *const _ as usize), EntryFlags::WRITABLE, allocator);
+
         let mb_start = Frame::containing_address(boot_info.start_address() as usize);
         let mb_end = Frame::containing_address(boot_info.end_address() as usize - 1);
         for frame in Frame::range_inclusive(mb_start, mb_end) {
@@ -115,7 +129,6 @@ pub fn remap_kernel<A>(allocator: &mut A, boot_info: &BootInformation) -> Active
         }
         let vga_buffer_frame = Frame::containing_address(0xb8000);
         mapper.identity_map(vga_buffer_frame, EntryFlags::WRITABLE, allocator);
-        
     });
     let old_table = active_table.switch(new_table);
 

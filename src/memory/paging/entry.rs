@@ -34,7 +34,8 @@ impl Entry {
 
     /// Sets the frame and flags for this entry.
     pub fn set(&mut self, frame: Frame, flags: EntryFlags) {
-        assert!(frame.start_address() & !0x000fffff_fffff000 == 0, "Physical frame address is not page-aligned");
+        assert!(frame.start_address() & !0x000f_ffff_ffff_f000 == 0,
+            "Physical frame address is not page-aligned (got {:#x} )", frame.start_address());
         self.0 = (frame.start_address() as u64) | flags.bits();
     }
 
